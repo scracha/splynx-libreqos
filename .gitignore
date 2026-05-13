@@ -1,0 +1,4 @@
+traffic_data.sqlite
+traffic_data.sqlite-wal
+traffic_data.sqlite-shm
+config.php

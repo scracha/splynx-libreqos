@@ -1,0 +1,27 @@
+<?php
+/**
+ * Configuration for splynx-libreqos unknown service tracker
+ */
+
+// --- LibreQoS Traffic Agent (proxy on the LibreQoS server) ---
+$libreqosAgentUrl = 'http://your-libreqos-server:9210';
+
+// --- Splynx Service Data (shared with splynx-service exporter) ---
+define('DATA_STORE_PATH', '/dev/shm/splynx_active_services.json');
+
+// --- Splynx Admin URL (for hyperlinks) ---
+$splynxAdminUrl = 'https://your-splynx-instance.example.com';
+
+// --- Local SQLite Database for traffic accumulation ---
+$dbPath = __DIR__ . '/traffic_data.sqlite';
+
+// --- Thresholds ---
+// Ignore IPs with less than this over the lookback period (for display)
+$backgroundThresholdBytes = 50 * 1024 * 1024;  // 50MB
+
+// Ignore per-poll deltas below this (background noise filter)
+// 10Kbps × 900 seconds = ~1.1MB per 15-min interval
+$noiseThresholdPerPoll = 1.1 * 1024 * 1024;  // ~1.1MB
+
+// --- Lookback ---
+$lookbackDays = 31;

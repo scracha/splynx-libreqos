@@ -1,0 +1,17 @@
+[Unit]
+Description=LibreQoS Traffic Agent - serves per-IP throughput as JSON
+After=network.target lqosd.service
+Wants=lqosd.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/traffic_agent
+ExecStart=/usr/bin/python3 /opt/traffic_agent/traffic_agent.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
