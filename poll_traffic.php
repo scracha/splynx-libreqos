@@ -135,6 +135,51 @@ $db->exec("DELETE FROM traffic_deltas WHERE sampled_at < '{$cutoff}'");
 $snapCutoff = gmdate('Y-m-d H:i:s', strtotime("-7 days"));
 $db->exec("DELETE FROM traffic_snapshot WHERE updated_at < '{$snapCutoff}'");
 
+// --- 6. Purge resolved "unshaped" entries ---
+// IPs that are active in Splynx but were previously unknown to LibreQoS.
+// If they're no longer in the unknownIps list, they've been picked up by the
+// shaper and their historical deltas are just stale clutter — remove them.
+$currentUnknownIps = array_column($unknownIps, 'ip');
+$currentUnknownSet = array_flip($currentUnknownIps);
+
+if (file_exists(DATA_STORE_PATH)) {
+    $splynxServices = json_decode(file_get_contents(DATA_STORE_PATH), true) ?? [];
+
+    // Get all IPs that have traffic deltas in the DB
+    $allDeltaIps = [];
+    $deltaIpResult = $db->query("SELECT DISTINCT ip FROM traffic_deltas");
+    while ($row = $deltaIpResult->fetchArray(SQLITE3_ASSOC)) {
+        $allDeltaIps[] = $row['ip'];
+    }
+
+    $purged = 0;
+    foreach ($allDeltaIps as $ip) {
+        // Skip if this IP is still in the unknownIps list (still unshaped)
+        if (isset($currentUnknownSet[$ip])) continue;
+
+        // Skip if this IP isn't in Splynx (it's "unknown", not "unshaped")
+        if (!isset($splynxServices[$ip])) continue;
+
+        // Check it's an active customer with active service (i.e. would be "unshaped")
+        $svc = $splynxServices[$ip];
+        $custStatus = strtolower($svc['customer_status'] ?? '');
+        $svcStatus = strtolower($svc['service_status'] ?? '');
+
+        if (($custStatus === '' || $custStatus === 'active') &&
+            ($svcStatus === '' || $svcStatus === 'active')) {
+            // This was "unshaped" but is no longer unknown to LibreQoS — purge it
+            $delStmt = $db->prepare("DELETE FROM traffic_deltas WHERE ip = :ip");
+            $delStmt->bindValue(':ip', $ip, SQLITE3_TEXT);
+            $delStmt->execute();
+            $purged++;
+        }
+    }
+
+    if ($purged > 0) {
+        echo "[" . date('Y-m-d H:i:s') . "] Purged {$purged} resolved unshaped entries\n";
+    }
+}
+
 $db->close();
 
 $timestamp = date('Y-m-d H:i:s');
